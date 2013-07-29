@@ -246,7 +246,7 @@ func (client *Client) GetRawMail(index int) (mail string, err error) {
 	}
 
 	//Remove the first line
-	mail = mail[strings.Index(mail, "\n"):]
+	mail = mail[strings.Index(mail, "\n") + 1:]
 
 	return
 }
