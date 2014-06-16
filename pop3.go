@@ -7,12 +7,12 @@ package pop3
 
 import (
 	"bufio"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
 	"strconv"
 	"strings"
-	"crypto/tls"
 )
 
 const (
@@ -104,6 +104,27 @@ func (client *Client) Command(command string, isResponseMultiLine bool) (string,
 	client.stream.Flush()
 
 	return client.readMessage(isResponseMultiLine)
+}
+
+func (client *Client) CommandStream(command string, isResponseMultiline bool) (reader *bufio.ReadWriter, err error) {
+
+	//Check, whether the client connection has already been
+	if client == nil {
+		err = errors.New("Connection hasn't been established")
+		return
+	}
+
+	//Send the command to the server
+	tmp := command + CRLF
+	_, writeErr := client.stream.WriteString(tmp)
+	if writeErr != nil {
+		err = writeErr
+		return
+	}
+	client.stream.Flush()
+
+	reader = client.stream
+	return
 }
 
 //Returns the response of the pop3 server, or an error if any
@@ -246,8 +267,17 @@ func (client *Client) GetRawMail(index int) (mail string, err error) {
 	}
 
 	//Remove the first line
-	mail = mail[strings.Index(mail, "\n") + 1:]
+	mail = mail[strings.Index(mail, "\n")+1:]
 
+	return
+}
+
+func (client *Client) GetRawMailStream(index int) (reader *bufio.ReadWriter, err error) {
+	if index < 1 {
+		err = IndexERR
+		return
+	}
+	reader, err = client.CommandStream(fmt.Sprintf("%s %d", RETRIEVE, index), true)
 	return
 }
 
