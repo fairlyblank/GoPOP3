@@ -200,6 +200,9 @@ func (client *Client) Quit() (string, error) {
 	msg, err := client.Command(QUIT, false)
 	// !! POP3 connection was kept open forever!
 	if err != nil {
+		if client.conn != nil {
+			client.conn.Close()
+		}
 		return msg, err
 	}
 	if client.conn != nil {
