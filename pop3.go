@@ -197,7 +197,13 @@ func (client *Client) MarkMailAsDeleted(index int) (string, error) {
 //Issues the Quit-Command, so the POP3 session enters the UPDATE state
 //All mails, which are marked as "deleted", are going to be removed now
 func (client *Client) Quit() (string, error) {
-	return client.Command(QUIT, false)
+	msg, err := client.Command(QUIT, false)
+	// !! POP3 connection was kept open forever!
+	if err != nil {
+		return msg, err
+	}
+	err = client.conn.Close()
+	return msg, err
 }
 
 //Retrieves the count of mails and the size of all those mails in the mailbox
