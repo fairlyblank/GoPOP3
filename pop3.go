@@ -202,7 +202,9 @@ func (client *Client) Quit() (string, error) {
 	if err != nil {
 		return msg, err
 	}
-	err = client.conn.Close()
+	if client.conn != nil {
+		err = client.conn.Close()
+	}
 	return msg, err
 }
 
