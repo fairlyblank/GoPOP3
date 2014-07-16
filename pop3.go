@@ -103,7 +103,10 @@ func (client *Client) Command(command string, isResponseMultiLine bool) (string,
 	if writeErr != nil {
 		return "", writeErr
 	}
-	client.stream.Flush()
+	err := client.stream.Flush()
+	if err != nil {
+		return "", err
+	}
 
 	return client.readMessage(isResponseMultiLine)
 }
@@ -123,7 +126,10 @@ func (client *Client) CommandStream(command string, isResponseMultiline bool) (r
 		err = writeErr
 		return
 	}
-	client.stream.Flush()
+	err = client.stream.Flush()
+	if err != nil {
+		return
+	}
 
 	reader = client.stream
 	return
