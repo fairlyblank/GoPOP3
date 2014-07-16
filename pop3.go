@@ -206,7 +206,8 @@ func (client *Client) MarkMailAsDeleted(index int) (string, error) {
 //All mails, which are marked as "deleted", are going to be removed now
 func (client *Client) Quit() (string, error) {
 	msg, err := client.Command(QUIT, false)
-	// !! POP3 connection was kept open forever!
+	// POP3 connection is kept open forever in some rare occasions (i.e. when flushing the command fails)
+	// so we force close it when it happens
 	if err != nil {
 		if client.conn != nil {
 			client.conn.Close()
