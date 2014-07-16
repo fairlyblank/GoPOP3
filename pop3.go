@@ -13,6 +13,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const (
@@ -47,7 +48,7 @@ type Client struct {
 //Returns a new Client connected to a POP3 server at addr.
 //The format of addr is "ip:port" or "hostname:port"
 func Dial(addr string) (client *Client, err error) {
-	conn, err := net.Dial("tcp", addr)
+	conn, err := net.DialTimeout("tcp", addr, time.Second*60)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +58,8 @@ func Dial(addr string) (client *Client, err error) {
 }
 
 func DialTLS(addr string) (client *Client, err error) {
-	conn, err := tls.Dial("tcp", addr, nil)
+	dialer := &net.Dialer{Timeout: time.Second * 60}
+	conn, err := tls.DialWithDialer(dialer, "tcp", addr, nil)
 	if err != nil {
 		return nil, err
 	}
