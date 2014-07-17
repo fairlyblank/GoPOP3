@@ -7,12 +7,13 @@ package pop3
 
 import (
 	"bufio"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
 	"strconv"
 	"strings"
-	"crypto/tls"
+	"time"
 )
 
 const (
@@ -47,7 +48,7 @@ type Client struct {
 //Returns a new Client connected to a POP3 server at addr.
 //The format of addr is "ip:port" or "hostname:port"
 func Dial(addr string) (client *Client, err error) {
-	conn, err := net.Dial("tcp", addr)
+	conn, err := net.DialTimeout("tcp", addr, time.Second*60)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +58,8 @@ func Dial(addr string) (client *Client, err error) {
 }
 
 func DialTLS(addr string) (client *Client, err error) {
-	conn, err := tls.Dial("tcp", addr, nil)
+	dialer := &net.Dialer{Timeout: time.Second * 60}
+	conn, err := tls.DialWithDialer(dialer, "tcp", addr, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -101,9 +103,36 @@ func (client *Client) Command(command string, isResponseMultiLine bool) (string,
 	if writeErr != nil {
 		return "", writeErr
 	}
-	client.stream.Flush()
+	err := client.stream.Flush()
+	if err != nil {
+		return "", err
+	}
 
 	return client.readMessage(isResponseMultiLine)
+}
+
+func (client *Client) CommandStream(command string, isResponseMultiline bool) (reader *bufio.ReadWriter, err error) {
+
+	//Check, whether the client connection has already been
+	if client == nil {
+		err = errors.New("Connection hasn't been established")
+		return
+	}
+
+	//Send the command to the server
+	tmp := command + CRLF
+	_, writeErr := client.stream.WriteString(tmp)
+	if writeErr != nil {
+		err = writeErr
+		return
+	}
+	err = client.stream.Flush()
+	if err != nil {
+		return
+	}
+
+	reader = client.stream
+	return
 }
 
 //Returns the response of the pop3 server, or an error if any
@@ -176,7 +205,19 @@ func (client *Client) MarkMailAsDeleted(index int) (string, error) {
 //Issues the Quit-Command, so the POP3 session enters the UPDATE state
 //All mails, which are marked as "deleted", are going to be removed now
 func (client *Client) Quit() (string, error) {
-	return client.Command(QUIT, false)
+	msg, err := client.Command(QUIT, false)
+	// POP3 connection is kept open forever in some rare occasions (i.e. when flushing the command fails)
+	// so we force close it when it happens
+	if err != nil {
+		if client.conn != nil {
+			client.conn.Close()
+		}
+		return msg, err
+	}
+	if client.conn != nil {
+		err = client.conn.Close()
+	}
+	return msg, err
 }
 
 //Retrieves the count of mails and the size of all those mails in the mailbox
@@ -246,8 +287,17 @@ func (client *Client) GetRawMail(index int) (mail string, err error) {
 	}
 
 	//Remove the first line
-	mail = mail[strings.Index(mail, "\n") + 1:]
+	mail = mail[strings.Index(mail, "\n")+1:]
 
+	return
+}
+
+func (client *Client) GetRawMailStream(index int) (reader *bufio.ReadWriter, err error) {
+	if index < 1 {
+		err = IndexERR
+		return
+	}
+	reader, err = client.CommandStream(fmt.Sprintf("%s %d", RETRIEVE, index), true)
 	return
 }
 
